@@ -3,12 +3,30 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
+    /**
+     * Gate access to the Filament admin panel.
+     *
+     * Only accounts that hold at least one capability may enter. A user with
+     * every permission flag disabled (and not a super admin) is denied, so a
+     * de-provisioned or zero-permission account cannot reach the panel.
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->is_super_admin
+            || $this->can_manage_users
+            || $this->can_view_bookings
+            || $this->can_edit_bookings
+            || $this->can_manage_financials;
+    }
+
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 

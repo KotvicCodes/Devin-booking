@@ -54,6 +54,10 @@ class UserResource extends Resource
                         Toggle::make('is_super_admin')
                             ->label('Super administrátor')
                             ->helperText('Grants absolute access to all system features.')
+                            // Only an existing super admin may see or grant the super-admin flag.
+                            // The value is also enforced server-side in CreateUser/EditUser so a
+                            // crafted request cannot bypass this UI guard.
+                            ->visible(fn (): bool => (bool) (auth()->user()?->is_super_admin))
                             ->columnSpanFull(),
 
                         Toggle::make('can_manage_users')

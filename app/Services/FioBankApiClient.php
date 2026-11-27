@@ -14,7 +14,7 @@ class FioBankApiClient
     public function __construct()
     {
         // Cast so a missing FIO_BANK_API_TOKEN yields '' (isConfigured() === false) instead of a
-        // TypeError — the command is constructed on every artisan boot, so null broke all of artisan.
+        // TypeError. The command is constructed on every artisan boot, so null broke all of artisan.
         $this->token = (string) config('services.fio_bank.token');
     }
 

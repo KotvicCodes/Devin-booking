@@ -1,113 +1,69 @@
+# Isolated automated-test stack. Safe to run anywhere: the database lives in tmpfs and is
+# thrown away, the source is mounted read-only, and storage/ and bootstrap/cache/ are tmpfs,
+# so nothing is written to your checkout or to the dev/prod volumes.
+#
+#   docker compose -f compose.test.yaml run --rm test                 # full suite
+#   docker compose -f compose.test.yaml run --rm test --filter=Booking  # subset
+#   docker compose -f compose.test.yaml down                          # stop the test DB
+#
+# Add --build after `run` when composer.json or composer.lock changes.
+name: devin-booking-test
+
 services:
-    laravel.test:
-        build:
-            context: './vendor/laravel/sail/runtimes/8.5'
-            dockerfile: Dockerfile
-            args:
-                WWWGROUP: '${WWWGROUP}'
-        image: 'sail-8.5/app'
-        extra_hosts:
-            - 'host.docker.internal:host-gateway'
-        ports:
-            - '${APP_PORT:-80}:80'
-            - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
-        environment:
-            WWWUSER: '${WWWUSER}'
-            LARAVEL_SAIL: 1
-            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
-            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
-            IGNITION_LOCAL_SITES_PATH: '${PWD}'
-        volumes:
-            - '.:/var/www/html'
-        networks:
-            - sail
-        depends_on:
-            - mysql
-            - redis
-            - meilisearch
-            - mailpit
-            - selenium
-    mysql:
-        image: 'mysql:8.4'
-        ports:
-            - '${FORWARD_DB_PORT:-3306}:3306'
-        environment:
-            MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
-            MYSQL_ROOT_HOST: '%'
-            MYSQL_DATABASE: '${DB_DATABASE}'
-            MYSQL_USER: '${DB_USERNAME}'
-            MYSQL_PASSWORD: '${DB_PASSWORD}'
-            MYSQL_ALLOW_EMPTY_PASSWORD: 1
-            MYSQL_EXTRA_OPTIONS: '${MYSQL_EXTRA_OPTIONS:-}'
-        volumes:
-            - 'sail-mysql:/var/lib/mysql'
-            - './vendor/laravel/sail/database/mysql/create-testing-database.sh:/docker-entrypoint-initdb.d/10-create-testing-database.sh'
-        networks:
-            - sail
-        healthcheck:
-            test:
-                - CMD
-                - mysqladmin
-                - ping
-                - '-p${DB_PASSWORD}'
-            retries: 3
-            timeout: 5s
-    redis:
-        image: 'redis:alpine'
-        ports:
-            - '${FORWARD_REDIS_PORT:-6379}:6379'
-        volumes:
-            - 'sail-redis:/data'
-        networks:
-            - sail
-        healthcheck:
-            test:
-                - CMD
-                - redis-cli
-                - ping
-            retries: 3
-            timeout: 5s
-    meilisearch:
-        image: 'getmeili/meilisearch:latest'
-        ports:
-            - '${FORWARD_MEILISEARCH_PORT:-7700}:7700'
-        environment:
-            MEILI_NO_ANALYTICS: '${MEILISEARCH_NO_ANALYTICS:-false}'
-        volumes:
-            - 'sail-meilisearch:/meili_data'
-        networks:
-            - sail
-        healthcheck:
-            test:
-                - CMD
-                - wget
-                - '--no-verbose'
-                - '--spider'
-                - 'http://127.0.0.1:7700/health'
-            retries: 3
-            timeout: 5s
-    mailpit:
-        image: 'axllent/mailpit:latest'
-        ports:
-            - '${FORWARD_MAILPIT_PORT:-1025}:1025'
-            - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
-        networks:
-            - sail
-    selenium:
-        image: selenium/standalone-chromium
-        extra_hosts:
-            - 'host.docker.internal:host-gateway'
-        volumes:
-            - '/dev/shm:/dev/shm'
-        networks:
-            - sail
-networks:
-    sail:
-        driver: bridge
-volumes:
-    sail-mysql:
-        driver: local
-    sail-redis:
-        driver: local
-    sail-meilisearch:
-        driver: local
+  test:
+    build:
+      context: .
+      dockerfile: deploy/test.Dockerfile
+    image: devin-booking-test:latest
+    entrypoint: ["sh", "/var/www/html/deploy/test-entrypoint.sh"]
+    environment:
+      APP_ENV: testing
+      # Test-only key, not used anywhere else.
+      APP_KEY: "base64:1zWLkZdDCnyyZZm8JkxmR8W7noaNMQ+1s+KD57cSPKA="
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: testing
+      DB_USERNAME: testing
+      DB_PASSWORD: testing
+    # The source is mounted read-only, path by path, so tests can never modify the checkout
+    # and vendor/ (with dev dependencies) comes from the image. If you add a new top-level
+    # source directory, mount it here too.
+    volumes:
+      - ./app:/var/www/html/app:ro
+      - ./bootstrap/app.php:/var/www/html/bootstrap/app.php:ro
+      - ./bootstrap/providers.php:/var/www/html/bootstrap/providers.php:ro
+      - ./config:/var/www/html/config:ro
+      - ./database:/var/www/html/database:ro
+      - ./lang:/var/www/html/lang:ro
+      - ./public:/var/www/html/public:ro
+      - ./resources:/var/www/html/resources:ro
+      - ./routes:/var/www/html/routes:ro
+      - ./tests:/var/www/html/tests:ro
+      - ./deploy:/var/www/html/deploy:ro
+      - ./artisan:/var/www/html/artisan:ro
+      - ./composer.json:/var/www/html/composer.json:ro
+      - ./composer.lock:/var/www/html/composer.lock:ro
+      - ./phpunit.xml:/var/www/html/phpunit.xml:ro
+    tmpfs:
+      - /var/www/html/storage
+      - /var/www/html/bootstrap/cache
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    # Same MySQL version as production (compose.yaml).
+    image: mysql:8.0.36
+    environment:
+      MYSQL_DATABASE: testing
+      MYSQL_USER: testing
+      MYSQL_PASSWORD: testing
+      MYSQL_ROOT_PASSWORD: testing
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-ptesting"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

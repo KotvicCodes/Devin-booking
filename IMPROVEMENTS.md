@@ -16,6 +16,22 @@ recommendations are included since the highest-value fixes live there.
 
 ## P0 — Fix before/at next deploy
 
+### 0. Automatic Fio payment import has never run
+Found while adding the test stack (November 2026). Fix all three issues together, with tests;
+fixing only (a) would make production consume payments without recording them:
+- **(a) Syntax error:** `app/Console/Commands/ProcessFioBankPayments.php:170,185` interpolate
+  `{$amount - $oldAmount}` in a string, which is a PHP parse error (`php -l` fails). Laravel's command
+  discovery silently skips the file, so `bookings:process-fio-payments` is not registered and
+  the 10-minute schedule fails on every run. It has been like this since the initial commit.
+- **(b) Wrong response shape:** the command reads `$data['transactionList']`, but Fio returns
+  `{"accountStatement":{"info":…,"transactionList":{"transaction":[…]}}}` (bundled Fio PDF,
+  JSON example). Once (a) is fixed, every run would see zero transactions while the `/last/`
+  call still advances Fio's server-side checkpoint ("zarážka"), so the payments would be lost.
+  `bookings:test-fio-api` (DEPLOY.md) also calls `/last/` and moves that checkpoint.
+- **(c) Amounts treated as cumulative:** `column1` ("Objem") is the amount of the individual
+  transaction, not a running total per variable symbol. Partial payments must be added to
+  `paid_amount`, not replace it.
+
 ### 1. Fio Bank API token is logged in plaintext
 `app/Services/FioBankApiClient.php:31-33,73` builds the request URL with the secret token
 embedded in the path (`/last/{token}/transactions.json`) — this is how Fio's API works — but
@@ -111,6 +127,10 @@ service defines no `healthcheck`, even though a good `/health` endpoint already 
 ## P2 — Maintainability
 
 ### 11. Essentially no automated tests, despite complex money/availability logic
+> **Status (Nov 2026):** an isolated test stack now exists (`compose.test.yaml`; see the
+> "Testing" section in `CLAUDE.md`) with smoke tests for the booking form, availability API,
+> pending-booking command and admin access. The money and payment cases below are still uncovered.
+
 `tests/` contains only `TestCase.php` — **zero real tests**. The riskiest code (overlap/capacity
 race handling and DB lock in `BookingForm::submitReservation`, price/deposit/variable-symbol
 computation in the `Booking` model, Fio payment matching, pending-booking cancellation) is

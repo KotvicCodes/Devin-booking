@@ -26,9 +26,10 @@ COPY composer.json composer.lock ./
 # --no-scripts: artisan/app source is not in the image yet (it is mounted at runtime).
 RUN composer install --no-interaction --prefer-dist --no-progress --no-scripts
 
-# Fingerprint of the lock file vendor/ was installed from; the entrypoint compares it with the
-# mounted composer.lock and asks for a rebuild when dependencies have changed.
-RUN sha1sum composer.lock > /opt/composer.lock.sha1
+# Fingerprint of the Composer files vendor/ was installed from; the entrypoint compares it with
+# the mounted copies and asks for a rebuild when either changed. Both are needed: autoload /
+# autoload-dev rules live only in composer.json and are not covered by composer.lock's hash.
+RUN sha1sum composer.json composer.lock > /opt/composer.sha1
 
 # Empty .env: all test configuration comes from compose.test.yaml + phpunit.xml. Without the
 # file, phpdotenv's read attempt surfaces as a PHPUnit warning in every HTTP test.

@@ -6,7 +6,7 @@
 #   docker compose -f compose.test.yaml run --rm test --filter=Booking  # subset
 #   docker compose -f compose.test.yaml down                          # stop the test DB
 #
-# Add --build after `run` when composer.lock changes.
+# Add --build after `run` when composer.json or composer.lock changes.
 name: devin-booking-test
 
 services:

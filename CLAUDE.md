@@ -48,7 +48,7 @@ docker compose -f compose.test.yaml down                              # stop the
 
 - Needs only Docker: no host PHP, Composer, `.env` or `vendor/`. First run builds
   `deploy/test.Dockerfile` (PHP 8.4 CLI + dev dependencies); add `--build` after `run` when
-  `composer.lock` changes (the entrypoint refuses to run with a stale `vendor/`).
+  `composer.json` or `composer.lock` changes (the entrypoint refuses to run with a stale `vendor/`).
 - MySQL 8.0.36 (same as prod) in tmpfs, because `BookingForm` uses MySQL `GET_LOCK`; don't
   switch tests to SQLite.
 - The source is mounted **read-only** path by path (see `compose.test.yaml`), with `storage/`

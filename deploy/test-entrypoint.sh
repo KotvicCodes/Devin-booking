@@ -5,8 +5,8 @@
 #   any other command  -> run it as-is (e.g. `php artisan tinker`, `sh`)
 set -e
 
-if ! sha1sum -c -s /opt/composer.lock.sha1 2>/dev/null; then
-    echo "composer.lock changed since the test image was built." >&2
+if ! sha1sum -c -s /opt/composer.sha1 2>/dev/null; then
+    echo "composer.json or composer.lock changed since the test image was built." >&2
     echo "Rebuild it: docker compose -f compose.test.yaml run --build --rm test" >&2
     exit 1
 fi

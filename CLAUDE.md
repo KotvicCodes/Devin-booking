@@ -32,9 +32,32 @@ environment (`docker compose down -v`, `migrate:fresh`, `db:wipe`).
 ```bash
 docker compose -f compose.dev.yaml up -d     # dev stack (uses .dev.env); Mailpit at :8025
 docker compose -f compose.yaml up -d         # prod stack (uses .env)
-docker compose exec app php artisan test     # run tests
-docker compose exec app ./vendor/bin/pint    # format (Pint is a dev dependency)
 ```
+
+## Testing
+
+Run tests through the isolated test stack, **not** inside the `app` container (that image is
+built with `composer install --no-dev`, so it has no PHPUnit or Pint):
+
+```bash
+docker compose -f compose.test.yaml run --rm test                     # full suite
+docker compose -f compose.test.yaml run --rm test --filter=BookingForm  # subset (args go to `artisan test`)
+docker compose -f compose.test.yaml run --rm test vendor/bin/pint --test tests  # style check
+docker compose -f compose.test.yaml down                              # stop the throwaway MySQL
+```
+
+- Needs only Docker: no host PHP, Composer, `.env` or `vendor/`. First run builds
+  `deploy/test.Dockerfile` (PHP 8.4 CLI + dev dependencies); add `--build` after `run` when
+  `composer.lock` changes (the entrypoint refuses to run with a stale `vendor/`).
+- MySQL 8.0.36 (same as prod) in tmpfs, because `BookingForm` uses MySQL `GET_LOCK`; don't
+  switch tests to SQLite.
+- The source is mounted **read-only** path by path (see `compose.test.yaml`), with `storage/`
+  and `bootstrap/cache/` on tmpfs, so tests can't touch the checkout or the dev/prod volumes.
+  Add any new top-level source directory to the mounts there.
+- Tests live in `tests/Feature` (HTTP, Livewire, artisan, Filament) and `tests/Unit`. Use
+  `RefreshDatabase` and `Mail::fake()`. The default prices and capacity come from
+  `database/settings/` migrations.
+- Bug fixes come with a regression test that fails before the fix.
 
 Prod stack services: `app`, `queue`, `scheduler`, `db`, `backup`, `meilisearch`, `caddy`
 (Caddy terminates TLS and reverse-proxies to `app:80`).

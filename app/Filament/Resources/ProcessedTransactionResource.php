@@ -13,7 +13,7 @@ class ProcessedTransactionResource extends Resource
 {
     protected static ?string $model = ProcessedTransaction::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-banknotes';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
 
     protected static ?string $navigationLabel = 'Zpracované Platby';
 
@@ -54,12 +54,12 @@ class ProcessedTransactionResource extends Resource
                 Tables\Columns\TextColumn::make('booking.id')
                     ->label('Rezervace')
                     ->url(
-                        fn(ProcessedTransaction $record): string => $record->booking_id
+                        fn (ProcessedTransaction $record): string => $record->booking_id
                         ? route('filament.admin.resources.bookings.edit', $record->booking)
                         : '#'
                     )
                     ->color('warning')
-                    ->formatStateUsing(fn($state) => $state ? "#{$state}" : 'N/A')
+                    ->formatStateUsing(fn ($state) => $state ? "#{$state}" : 'N/A')
                     ->searchable()
                     ->sortable(),
 
@@ -72,17 +72,18 @@ class ProcessedTransactionResource extends Resource
                     ->label('Částka')
                     ->sortable()
                     ->numeric(decimalPlaces: 0)
-                    ->formatStateUsing(fn($state) => $state . ' Kč')
+                    ->formatStateUsing(fn ($state) => $state.' Kč')
                     ->alignment('right'),
 
-                Tables\Columns\BadgeColumn::make('status')
+                Tables\Columns\TextColumn::make('status')
+                    ->badge()
                     ->label('Status')
                     ->sortable()
                     ->colors([
                         'success' => 'processed',
                         'warning' => 'skipped',
                     ])
-                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
                         'processed' => '✅ Zpracováno',
                         'skipped' => '⏭️ Přeskočeno',
                         default => $state,
@@ -91,7 +92,7 @@ class ProcessedTransactionResource extends Resource
                 Tables\Columns\TextColumn::make('notes')
                     ->label('Poznámky')
                     ->limit(50)
-                    ->tooltip(fn(ProcessedTransaction $record) => $record->notes)
+                    ->tooltip(fn (ProcessedTransaction $record) => $record->notes)
                     ->wrap(),
 
                 Tables\Columns\TextColumn::make('created_at')
@@ -124,11 +125,11 @@ class ProcessedTransactionResource extends Resource
                         return $query
                             ->when(
                                 $data['created_from'] ?? null,
-                                fn($query, $date) => $query->whereDate('created_at', '>=', $date),
+                                fn ($query, $date) => $query->whereDate('created_at', '>=', $date),
                             )
                             ->when(
                                 $data['created_until'] ?? null,
-                                fn($query, $date) => $query->whereDate('created_at', '<=', $date),
+                                fn ($query, $date) => $query->whereDate('created_at', '<=', $date),
                             );
                     }),
             ])

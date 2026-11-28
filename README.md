@@ -4,11 +4,12 @@ Laravel booking and administration system for a cabin rental. The app provides a
 
 ## Tech Stack
 
-- Framework: Laravel 12
-- PHP: 8.2+
-- Admin panel: FilamentPHP 3
+- Framework: Laravel 13
+- PHP: 8.4.1+
+- Admin panel: FilamentPHP 5
 - Frontend: Livewire, FullCalendar, Flatpickr, Vite, Tailwind CSS 4
 - Database: MySQL
+- Node.js: 22.12+ (frontend build and development tools)
 - Settings: spatie/laravel-settings
 - Payments: Fio Bank API integration
 
@@ -29,6 +30,10 @@ To start production locally or on a server:
 To start the development stack:
 
 `docker compose -f compose.dev.yaml up -d`
+
+Install frontend dependencies with `npm ci` and build them with `npm run build`.
+The build writes the application version from `package.json` to `public/build/version.json`.
+The initial versioned release is `0.0.1`.
 
 The production stack uses `.env`. The development stack uses `.dev.env`.
 

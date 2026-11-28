@@ -4,20 +4,21 @@ namespace App\Filament\Pages;
 
 // Aliases the Spatie settings class to prevent a naming collision with the Filament page class
 use App\Settings\GeneralSettings as BlueprintSettings;
-use Filament\Actions\Action;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Pages\SettingsPage;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 
 // The class name must exactly match the file name (GeneralSettings.php) for Laravel's autoloader to find it
 class GeneralSettings extends SettingsPage
 {
-    protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
 
     protected static ?string $navigationLabel = 'Obecné nastavení';
+
     protected static ?string $title = 'Obecné nastavení';
 
-    protected static ?string $navigationGroup = 'Správa';
+    protected static string|\UnitEnum|null $navigationGroup = 'Správa';
 
     protected static ?int $navigationSort = 100;
 
@@ -31,14 +32,14 @@ class GeneralSettings extends SettingsPage
     }
 
     // Constructs the form layout and defines the input fields for the settings page
-    public function form(Form $form): Form
+    public function form(Schema $form): Schema
     {
-        $user = auth()->user();
-        $readOnly = !$user?->is_super_admin && !$user?->can_manage_financials;
+        $readOnly = ! $this->canEdit();
 
         return $form
             ->schema([
-                Forms\Components\Section::make('Cenové úrovně')
+                Section::make('Cenové úrovně')
+                    ->columnSpanFull()
                     ->schema([
                         Forms\Components\TextInput::make('graduate_price')
                             ->numeric()
@@ -54,14 +55,12 @@ class GeneralSettings extends SettingsPage
                             ->label('Cena student')
                             ->disabled($readOnly),
 
-
                         Forms\Components\TextInput::make('child_price')
                             ->numeric()
                             ->required()
                             ->suffix('Kč')
                             ->label('Cena dítě')
                             ->disabled($readOnly),
-
 
                         Forms\Components\TextInput::make('external_price')
                             ->numeric()
@@ -77,7 +76,6 @@ class GeneralSettings extends SettingsPage
                             ->label('Cena pes')
                             ->disabled($readOnly),
 
-
                         Forms\Components\TextInput::make('wood_price')
                             ->numeric()
                             ->required()
@@ -87,7 +85,8 @@ class GeneralSettings extends SettingsPage
 
                     ])->columns(6),
 
-                Forms\Components\Section::make('Bankovní údaje')
+                Section::make('Bankovní údaje')
+                    ->columnSpanFull()
                     ->schema([
                         Forms\Components\TextInput::make('bank_account_number')
                             ->required()
@@ -101,7 +100,8 @@ class GeneralSettings extends SettingsPage
                             ->prefix('/')
                             ->disabled($readOnly),
                     ])->columns(3),
-                Forms\Components\Section::make('Obecné')
+                Section::make('Obecné')
+                    ->columnSpanFull()
                     ->schema([
                         Forms\Components\TextInput::make('bed_capacity')
                             ->numeric()
@@ -109,7 +109,6 @@ class GeneralSettings extends SettingsPage
                             ->suffix('lůžek')
                             ->label('Kapacita')
                             ->disabled($readOnly),
-
 
                         Forms\Components\TextInput::make('pending_window')
                             ->numeric()
@@ -128,21 +127,10 @@ class GeneralSettings extends SettingsPage
             ]);
     }
 
-    /**
-     * Control which actions (e.g. Save) are shown on the settings form.
-     * All admins can view, but only super admins or finance admins can edit.
-     *
-     * @return array<Action>
-     */
-    public function getFormActions(): array
+    public function canEdit(): bool
     {
         $user = auth()->user();
 
-        if (!$user?->is_super_admin && !$user?->can_manage_financials) {
-            // No save button for read-only viewers
-            return [];
-        }
-
-        return parent::getFormActions();
+        return (bool) ($user?->is_super_admin || $user?->can_manage_financials);
     }
 }

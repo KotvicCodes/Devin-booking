@@ -4,24 +4,24 @@ namespace App\Filament\Pages;
 
 use App\Models\Booking;
 use App\Models\ProcessedTransaction;
+use Carbon\Carbon;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Carbon\Carbon;
 
 class SystemHealthDashboard extends Page
 {
-    protected static ?string $navigationIcon = 'heroicon-o-heart';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-heart';
 
     protected static ?string $navigationLabel = 'Zdraví systému';
 
     protected ?string $heading = 'Přehled zdraví systému';
 
-    protected static ?string $navigationGroup = 'Správa';
+    protected static string|\UnitEnum|null $navigationGroup = 'Správa';
 
     protected static ?int $navigationSort = 900;
 
-    protected static string $view = 'filament.pages.system-health-dashboard';
+    protected string $view = 'filament.pages.system-health-dashboard';
 
     public static function canAccess(): bool
     {
@@ -32,7 +32,7 @@ class SystemHealthDashboard extends Page
 
     public function getPendingJobsCountProperty(): int
     {
-        if (!DB::getSchemaBuilder()->hasTable('jobs')) {
+        if (! DB::getSchemaBuilder()->hasTable('jobs')) {
             return 0;
         }
 
@@ -41,7 +41,7 @@ class SystemHealthDashboard extends Page
 
     public function getFailedJobsCountProperty(): int
     {
-        if (!DB::getSchemaBuilder()->hasTable('failed_jobs')) {
+        if (! DB::getSchemaBuilder()->hasTable('failed_jobs')) {
             return 0;
         }
 
@@ -50,12 +50,12 @@ class SystemHealthDashboard extends Page
 
     public function getLastBackupInfoProperty(): ?array
     {
-        if (!Storage::exists('backups')) {
+        if (! Storage::exists('backups')) {
             return null;
         }
 
         $files = collect(Storage::files('backups'))
-            ->filter(fn($path) => str_ends_with($path, '.sql.gz'))
+            ->filter(fn ($path) => str_ends_with($path, '.sql.gz'))
             ->sortDesc()
             ->values();
 
@@ -76,6 +76,7 @@ class SystemHealthDashboard extends Page
     {
         try {
             DB::connection()->getPdo();
+
             return true;
         } catch (\Exception) {
             return false;
@@ -103,7 +104,7 @@ class SystemHealthDashboard extends Page
     {
         $size = 0;
         try {
-            foreach (glob(rtrim($path, '/') . '/*', GLOB_NOSORT) as $each) {
+            foreach (glob(rtrim($path, '/').'/*', GLOB_NOSORT) as $each) {
                 if (is_file($each)) {
                     $size += filesize($each);
                 } elseif (is_dir($each)) {
@@ -113,6 +114,7 @@ class SystemHealthDashboard extends Page
         } catch (\Exception) {
             return 0;
         }
+
         return $size;
     }
 
@@ -120,7 +122,7 @@ class SystemHealthDashboard extends Page
     {
         try {
             $logFile = storage_path('logs/laravel.log');
-            if (!file_exists($logFile)) {
+            if (! file_exists($logFile)) {
                 return [];
             }
 
@@ -131,6 +133,7 @@ class SystemHealthDashboard extends Page
                     $errors[] = trim($line);
                 }
             }
+
             return $errors;
         } catch (\Exception) {
             return [];
@@ -140,7 +143,7 @@ class SystemHealthDashboard extends Page
     public function getFioBankStatusProperty(): array
     {
         $token = config('services.fio_bank.token');
-        $isConfigured = !empty($token);
+        $isConfigured = ! empty($token);
 
         $lastTransaction = ProcessedTransaction::orderByDesc('created_at')->first();
         $last24HourTransactions = ProcessedTransaction::where('created_at', '>=', Carbon::now()->subDay())->count();
@@ -211,4 +214,3 @@ class SystemHealthDashboard extends Page
         return null;
     }
 }
-

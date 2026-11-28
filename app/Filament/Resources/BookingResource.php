@@ -3,75 +3,91 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\BookingResource\Pages;
-use App\Filament\Resources\BookingResource\RelationManagers;
 use App\Models\Booking;
+use App\Settings\GeneralSettings;
+use Carbon\Carbon;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\HtmlString;
 
 class BookingResource extends Resource
 {
     protected static ?string $model = Booking::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
     // Sets the plural and singular names for the resource in the navigation menu
     protected static ?string $modelLabel = 'Rezervace';
+
     protected static ?string $pluralModelLabel = 'Rezervace';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema([
                 // Customer contact details
-                \Filament\Forms\Components\Section::make('Informace o hostovi')
+                Section::make('Informace o hostovi')
+                    ->columnSpanFull()
                     ->schema([
-                        \Filament\Forms\Components\TextInput::make('customer_name')
+                        TextInput::make('customer_name')
                             ->label('Jméno a příjmení')
                             ->required()
                             ->maxLength(255),
 
-                        \Filament\Forms\Components\TextInput::make('customer_email')
+                        TextInput::make('customer_email')
                             ->label('E-mailová adresa')
                             ->email()
                             ->maxLength(255)
                             ->live(onBlur: true)
-                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                            ->afterStateUpdated(function ($state, Set $set) {
                                 if (empty($state)) {
                                     $set('send_confirmation_email', false);
                                     $set('enforce_payment_deadline', false);
                                 }
                             }),
 
-                        \Filament\Forms\Components\TextInput::make('customer_phone')
+                        TextInput::make('customer_phone')
                             ->label('Telefonní číslo')
                             ->tel()
                             ->maxLength(255),
                     ])->columns(3),
 
                 // Core scheduling and current state of the reservation
-                \Filament\Forms\Components\Section::make('Termín a stav rezervace')
+                Section::make('Termín a stav rezervace')
+                    ->columnSpanFull()
                     ->schema([
-                        \Filament\Forms\Components\DatePicker::make('start_date')
+                        DatePicker::make('start_date')
                             ->label('Datum příjezdu')
                             ->required()
                             ->native(false)
                             ->displayFormat('d.m.Y'),
 
                         // Ensures the end date cannot be set before the start date
-                        \Filament\Forms\Components\DatePicker::make('end_date')
+                        DatePicker::make('end_date')
                             ->label('Datum odjezdu')
                             ->required()
                             ->native(false)
                             ->displayFormat('d.m.Y')
                             ->afterOrEqual('start_date')
                             ->live(onBlur: true)
-                            ->afterStateUpdated(function ($state, Forms\Set $set) {
-                                if (!empty($state) && \Carbon\Carbon::parse($state)->endOfDay()->isPast()) {
+                            ->afterStateUpdated(function ($state, Set $set) {
+                                if (! empty($state) && Carbon::parse($state)->endOfDay()->isPast()) {
                                     $set('send_confirmation_email', false);
                                     $set('enforce_payment_deadline', false);
                                 }
@@ -89,46 +105,48 @@ class BookingResource extends Resource
                     ])->columns(3),
 
                 // Manages the specific guest metrics required for capacity and pricing calculations
-                \Filament\Forms\Components\Section::make('Rozpis hostů')
+                Section::make('Rozpis hostů')
+                    ->columnSpanFull()
                     ->schema([
-                        \Filament\Forms\Components\TextInput::make('graduate_count')
+                        TextInput::make('graduate_count')
                             ->label('Absolventi')
                             ->numeric()
                             ->default(0)
                             ->minValue(0),
 
-                        \Filament\Forms\Components\TextInput::make('student_count')
+                        TextInput::make('student_count')
                             ->label('Studenti')
                             ->numeric()
                             ->default(0)
                             ->minValue(0),
 
-                        \Filament\Forms\Components\TextInput::make('child_count')
+                        TextInput::make('child_count')
                             ->label('Děti')
                             ->numeric()
                             ->default(0)
                             ->minValue(0),
 
-                        \Filament\Forms\Components\TextInput::make('external_count')
+                        TextInput::make('external_count')
                             ->label('Externisté')
                             ->numeric()
                             ->default(0)
                             ->minValue(0),
-                        \Filament\Forms\Components\TextInput::make('dog_count')
+                        TextInput::make('dog_count')
                             ->label('Psi')
                             ->numeric()
                             ->default(0)
                             ->minValue(0),
-                        \Filament\Forms\Components\Toggle::make('reserve_whole')
+                        Toggle::make('reserve_whole')
                             ->label('Rezervovat celou chatu')
                             ->helperText('Zabrání dalším hostům v rezervaci překrývajících se termínů bez ohledu na volnou kapacitu lůžek.')
                             ->default(false),
                     ])->columns(6),
 
                 // Secures the financial identifiers and internal communication
-                \Filament\Forms\Components\Section::make('Finance')
+                Section::make('Finance')
+                    ->columnSpanFull()
                     ->schema([
-                        \Filament\Forms\Components\TextInput::make('total_price')
+                        TextInput::make('total_price')
                             ->label('Celková cena')
                             ->numeric()
                             ->minValue(0)
@@ -137,11 +155,11 @@ class BookingResource extends Resource
                             ->nullable()
                             ->helperText('Ponechte prázdné pro automatický výpočet při uložení rezervace.')
                             ->live(onBlur: true)
-                            ->afterStateUpdated(function (\Filament\Forms\Set $set, $state) {
-                                if ($state === "0" || $state === 0) {
+                            ->afterStateUpdated(function (Set $set, $state) {
+                                if ($state === '0' || $state === 0) {
                                     $set('status', 'deposit_paid');
 
-                                    \Filament\Notifications\Notification::make()
+                                    Notification::make()
                                         ->title('Bezplatná rezervace')
                                         ->body('Cena byla nastavena na 0 Kč. Tato rezervace bude automaticky označena jako "Záloha zaplacena" a nebude u ní sledována splatnost.')
                                         ->warning()
@@ -150,7 +168,7 @@ class BookingResource extends Resource
                                 }
                             }),
 
-                        \Filament\Forms\Components\TextInput::make('deposit_amount')
+                        TextInput::make('deposit_amount')
                             ->label('Výše zálohy v Kč')
                             ->numeric()
                             ->minValue(0)
@@ -159,20 +177,21 @@ class BookingResource extends Resource
                             ->placeholder('Generováno automaticky')
                             ->helperText('Ponechte prázdné pro automatický výpočet při uložení rezervace.')
                             ->helperText(function () {
-                                $settings = app(\App\Settings\GeneralSettings::class);
+                                $settings = app(GeneralSettings::class);
                                 $percentage = $settings->deposit_percentage ?? 0;
-                                return new \Illuminate\Support\HtmlString("Ponechte prázdné pro automatický výpočet při uložení rezervace<br>(<strong>{$percentage}%</strong> z celkové ceny).");
+
+                                return new HtmlString("Ponechte prázdné pro automatický výpočet při uložení rezervace<br>(<strong>{$percentage}%</strong> z celkové ceny).");
                             }),
 
-                        \Filament\Forms\Components\TextInput::make('paid_amount')
+                        TextInput::make('paid_amount')
                             ->label('Přijatá částka')
                             ->numeric()
                             ->minValue(0)
                             ->suffix('Kč')
                             ->default(0)
-                            ->helperText("Už přijatá částka."),
+                            ->helperText('Už přijatá částka.'),
 
-                        \Filament\Forms\Components\TextInput::make('variable_symbol')
+                        TextInput::make('variable_symbol')
                             ->label('Variabilní symbol')
                             ->nullable()
                             ->unique(ignoreRecord: true)
@@ -180,61 +199,66 @@ class BookingResource extends Resource
                             ->helperText('Ponechte prázdné pro automatické vygenerování při uložení rezervace.'),
                     ])->columns(4),
 
-                Forms\Components\Section::make('Poznámky')
+                Section::make('Poznámky')
+                    ->columnSpanFull()
                     ->schema([
                         // Textareas span the full width of the section to allow for longer paragraphs
-                        \Filament\Forms\Components\Textarea::make('admin_notes')
+                        Textarea::make('admin_notes')
                             ->label('Interní poznámky administrátora')
                             ->columnSpanFull(),
 
-                        \Filament\Forms\Components\Textarea::make('customer_notes')
+                        Textarea::make('customer_notes')
                             ->label('Poznámky hosta')
                             ->columnSpanFull(),
                     ]),
 
                 // Controls the automated communication settings for this booking, allowing administrators to disable emails or payment enforcement on a per-booking basis
-                Forms\Components\Section::make('Komunikace a automatizace')
+                Section::make('Komunikace a automatizace')
+                    ->columnSpanFull()
                     ->schema([
-                        Forms\Components\Toggle::make('send_confirmation_email')
+                        Toggle::make('send_confirmation_email')
                             ->label('Odeslat e-mail při uložení/úpravě')
-                            ->helperText(function (Forms\Get $get) {
-                                if (!empty($get('end_date')) && \Carbon\Carbon::parse($get('end_date'))->endOfDay()->isPast()) {
-                                    return new \Illuminate\Support\HtmlString('<span style="color: #dc2626;">U historických rezervací nelze odesílat notifikace.</span>');
-                                } else if (empty($get('customer_email'))) {
-                                    return new \Illuminate\Support\HtmlString('<span style="color: #dc2626;">Zadejte e-mail hosta pro možnost odesílat notifikace.</span>');
+                            ->helperText(function (Get $get) {
+                                if (! empty($get('end_date')) && Carbon::parse($get('end_date'))->endOfDay()->isPast()) {
+                                    return new HtmlString('<span style="color: #dc2626;">U historických rezervací nelze odesílat notifikace.</span>');
+                                } elseif (empty($get('customer_email'))) {
+                                    return new HtmlString('<span style="color: #dc2626;">Zadejte e-mail hosta pro možnost odesílat notifikace.</span>');
                                 }
+
                                 return 'Okamžitě odešle e-mail hostovi při vytvoření nebo úpravě této rezervace.';
                             })
                             ->default(false)
-                            ->disabled(fn(Forms\Get $get): bool => empty($get('customer_email')) || (!empty($get('end_date')) && \Carbon\Carbon::parse($get('end_date'))->endOfDay()->isPast()))
+                            ->disabled(fn (Get $get): bool => empty($get('customer_email')) || (! empty($get('end_date')) && Carbon::parse($get('end_date'))->endOfDay()->isPast()))
                             ->dehydrated(),
 
-                        Forms\Components\Toggle::make('enforce_payment_deadline')
+                        Toggle::make('enforce_payment_deadline')
                             ->label('Vymáhat automatické termíny plateb')
-                            ->helperText(function (Forms\Get $get) {
-                                if (!empty($get('end_date')) && \Carbon\Carbon::parse($get('end_date'))->endOfDay()->isPast()) {
-                                    return new \Illuminate\Support\HtmlString('<span style="color: #dc2626;">U historických rezervací nelze vymáhat platby.</span>');
-                                } else if (empty($get('customer_email'))) {
-                                    return new \Illuminate\Support\HtmlString('<span style="color: #dc2626;">Zadejte e-mail hosta pro možnost vymáhat termíny plateb.</span>');
+                            ->helperText(function (Get $get) {
+                                if (! empty($get('end_date')) && Carbon::parse($get('end_date'))->endOfDay()->isPast()) {
+                                    return new HtmlString('<span style="color: #dc2626;">U historických rezervací nelze vymáhat platby.</span>');
+                                } elseif (empty($get('customer_email'))) {
+                                    return new HtmlString('<span style="color: #dc2626;">Zadejte e-mail hosta pro možnost vymáhat termíny plateb.</span>');
                                 }
+
                                 return 'Automaticky odesílá upozornění na platbu a zruší rezervaci při nezaplacení.';
                             })
                             ->default(false)
-                            ->disabled(fn(Forms\Get $get): bool => empty($get('customer_email')) || $get('total_price') <= 0 || (!empty($get('end_date')) && \Carbon\Carbon::parse($get('end_date'))->endOfDay()->isPast()))
+                            ->disabled(fn (Get $get): bool => empty($get('customer_email')) || $get('total_price') <= 0 || (! empty($get('end_date')) && Carbon::parse($get('end_date'))->endOfDay()->isPast()))
                             ->dehydrated(),
                     ])->columns(1),
-                Forms\Components\Section::make('Administrační data')
+                Section::make('Administrační data')
+                    ->columnSpanFull()
                     ->description('Změň pokud víš co děláš, může způsobit problémy u kontroly záloh')
                     ->schema([
-                        Forms\Components\DatePicker::make('last_warning_at')
+                        DatePicker::make('last_warning_at')
                             ->displayFormat('d.m.Y')
                             ->label('Naposledy upozorněno na platbu')
                             ->helperText('! Změna může něco rozbít !'),
-                        Forms\Components\DatePicker::make('created_at')
+                        DatePicker::make('created_at')
                             ->displayFormat('d.m.Y')
                             ->label('Datum vytvoření')
                             ->helperText('! Změna může něco rozbít !'),
-                        Forms\Components\DatePicker::make('updated_at')
+                        DatePicker::make('updated_at')
                             ->displayFormat('d.m.Y')
                             ->label('Naposledy upraveno')
                             ->helperText('! Změna může něco rozbít !'),
@@ -248,44 +272,44 @@ class BookingResource extends Resource
         return $table
             ->columns([
                 // Displays the start date formatted to a standard European layout
-                \Filament\Tables\Columns\TextColumn::make('start_date')
+                TextColumn::make('start_date')
                     ->label('Příjezd')
                     ->date('d.m.Y')
                     ->sortable(),
 
                 // Displays the end date formatted to a standard European layout
-                \Filament\Tables\Columns\TextColumn::make('end_date')
+                TextColumn::make('end_date')
                     ->label('Odjezd')
                     ->date('d.m.Y')
                     ->sortable(),
 
                 // Displays the customer's name and makes the column searchable via the top right search bar
-                \Filament\Tables\Columns\TextColumn::make('customer_name')
+                TextColumn::make('customer_name')
                     ->label('Host')
                     ->searchable()
                     ->sortable(),
 
                 // Displays the customer's email address
-                \Filament\Tables\Columns\TextColumn::make('customer_email')
+                TextColumn::make('customer_email')
                     ->label('E-mail')
                     ->searchable(),
 
                 // Displays the total price paid with a currency suffix
-                \Filament\Tables\Columns\TextColumn::make('paid_amount')
+                TextColumn::make('paid_amount')
                     ->label('Zaplaceno')
                     ->numeric()
                     ->sortable()
                     ->suffix(' Kč'),
 
                 // Displays the total price with a currency suffix
-                \Filament\Tables\Columns\TextColumn::make('total_price')
+                TextColumn::make('total_price')
                     ->label('Celková cena')
                     ->numeric()
                     ->sortable()
                     ->suffix(' Kč'),
 
                 // Displays the current payment or approval status using visual color indicators
-                \Filament\Tables\Columns\TextColumn::make('status')
+                TextColumn::make('status')
                     ->label('Stav')
                     ->badge()
                     ->colors([
@@ -295,28 +319,28 @@ class BookingResource extends Resource
                     ]),
 
                 // Displays a truncated preview of the customer notes, hiding the column by default
-                \Filament\Tables\Columns\TextColumn::make('customer_notes')
+                TextColumn::make('customer_notes')
                     ->label('Poznámky hosta')
                     ->limit(30)
-                    ->tooltip(fn($state) => $state)
+                    ->tooltip(fn ($state) => $state)
                     ->toggleable(isToggledHiddenByDefault: false),
 
                 // Displays a truncated preview of the admin notes, hiding the column by default to save screen space
-                \Filament\Tables\Columns\TextColumn::make('admin_notes')
+                TextColumn::make('admin_notes')
                     ->label('Interní poznámky')
                     ->limit(30)
-                    ->tooltip(fn($state) => $state)
+                    ->tooltip(fn ($state) => $state)
                     ->toggleable(isToggledHiddenByDefault: false),
             ])
             ->headerActions([
-                \Filament\Tables\Actions\Action::make('export_csv')
+                Action::make('export_csv')
                     ->label('Exportovat CSV')
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->action(fn() => static::exportCsv()),
+                    ->action(fn () => static::exportCsv()),
             ])
             ->filters([
                 // Allows administrators to filter the table by booking status using a dropdown
-                \Filament\Tables\Filters\SelectFilter::make('status')
+                SelectFilter::make('status')
                     ->label('Stav')
                     ->options([
                         'pending' => 'Nezaplaceno',
@@ -324,14 +348,14 @@ class BookingResource extends Resource
                         'cancelled' => 'Zrušeno',
                     ]),
             ])
-            ->actions([
+            ->recordActions([
                 // Adds a button to the end of each row to view or edit the specific booking record
-                \Filament\Tables\Actions\EditAction::make(),
+                EditAction::make(),
             ])
-            ->bulkActions([
+            ->toolbarActions([
                 // Allows administrators to delete multiple records simultaneously using the checkboxes
-                \Filament\Tables\Actions\BulkActionGroup::make([
-                    \Filament\Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -339,7 +363,7 @@ class BookingResource extends Resource
     // CSV export
     protected static function exportCsv()
     {
-        $fileName = 'bookings-' . now()->format('Ymd-His') . '.csv';
+        $fileName = 'bookings-'.now()->format('Ymd-His').'.csv';
 
         $bookings = Booking::orderBy('start_date')->get();
 

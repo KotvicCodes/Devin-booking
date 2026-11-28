@@ -26,11 +26,18 @@ final class FilamentAssetPatches
                 }
             }
 
-            $updates[$path] = $contents;
+            clearstatcache(true, $path);
+            $mode = fileperms($path);
+
+            if ($mode === false) {
+                throw new RuntimeException('An admin asset mode could not be read. Publishing was stopped.');
+            }
+
+            $updates[$path] = [$contents, $mode & 0666];
         }
 
-        foreach ($updates as $path => $contents) {
-            $files->replace($path, $contents, 0666 & ~umask());
+        foreach ($updates as $path => [$contents, $mode]) {
+            $files->replace($path, $contents, $mode);
         }
     }
 
@@ -57,6 +64,14 @@ final class FilamentAssetPatches
                 [
                     'let h=d=>{d.key==="Escape"&&f(d)};',
                     'let h=d=>{d.key==="Escape"&&(this.areFiltersOpen=!1,this.cleanUpFiltersDropdown?.(),this.cleanUpFiltersDropdown=null)};',
+                ],
+                [
+                    'async applyTableColumnManager(){let i=this.dropdownRevision;',
+                    'async applyTableColumnManager(){let previous=this.columns,i=this.dropdownRevision;',
+                ],
+                [
+                    'catch(o){return this.error="Failed to update column visibility",console.error("Table toggle columns error:",o),!1}finally{this.isLoading=!1}',
+                    'catch(o){return this.columns=previous,this.error="Failed to update column visibility",!1}finally{this.isLoading=!1}',
                 ],
             ],
             'js/filament/notifications/notifications.js' => [

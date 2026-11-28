@@ -116,6 +116,40 @@ test('successful select-all requests still update selection and clear loading', 
     assert.equal(updates, 1);
 });
 
+test('failed column changes restore confirmed visibility without logging the request error', async () => {
+    for (const isLive of [true, false]) {
+        const { components, context } = loadAsset('tables/tables.js');
+        context.console = { error() { assert.fail('Request errors must not be logged.'); } };
+        const confirmed = [{ name: 'customer_notes', isToggled: true }];
+        const manager = components.get('filamentTableColumnManager')({ columns: confirmed, isLive });
+        manager.$wire = { call: async () => { throw new Error('test failure'); } };
+        manager.deferredColumns = [{ name: 'customer_notes', isToggled: false }];
+        assert.equal(await manager.applyTableColumnManager(), false);
+        assert.deepEqual(manager.columns, confirmed);
+        assert.equal(manager.isLoading, false);
+        assert.equal(manager.error, 'Failed to update column visibility');
+    }
+});
+
+test('successful column changes retain confirmed visibility and deferred mode closes the dropdown', async () => {
+    const { components } = loadAsset('tables/tables.js');
+    const manager = components.get('filamentTableColumnManager')({
+        columns: [{ name: 'customer_notes', isToggled: true }], isLive: false,
+    });
+    const updated = [{ name: 'customer_notes', isToggled: false }];
+    manager.deferredColumns = updated;
+    let sent;
+    let closed = false;
+    manager.$wire = { call: async (method, columns) => { sent = { method, columns }; } };
+    manager.closeDropdown = () => { closed = true; };
+    assert.equal(await manager.applyTableColumnManager(), true);
+    assert.equal(JSON.stringify(manager.columns), JSON.stringify(updated));
+    assert.equal(sent.method, 'applyTableColumnManager');
+    assert.equal(JSON.stringify(sent.columns), JSON.stringify(updated));
+    assert.equal(manager.isLoading, false);
+    assert.equal(closed, true);
+});
+
 test('Escape closes filters even when the event target is inside the filter control', () => {
     const source = readFileSync(new URL('../../public/js/filament/tables/tables.js', import.meta.url), 'utf8');
     const start = source.indexOf('let h=d=>');

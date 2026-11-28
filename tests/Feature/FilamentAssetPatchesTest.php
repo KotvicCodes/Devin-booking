@@ -56,6 +56,30 @@ class FilamentAssetPatchesTest extends TestCase
         $this->assertSame($before, $this->assetHashes());
     }
 
+    public function test_existing_read_and_write_permissions_survive_a_restrictive_publishing_umask(): void
+    {
+        $this->assertSame(0, Artisan::call('filament:assets'));
+        $modes = ['filament/app.js' => 0644, 'tables/tables.js' => 0660, 'support/support.js' => 0755];
+
+        foreach ($modes as $asset => $mode) {
+            chmod(public_path('js/filament/'.$asset), $mode);
+        }
+
+        $previousUmask = umask(0077);
+
+        try {
+            FilamentAssetPatches::apply();
+        } finally {
+            umask($previousUmask);
+        }
+
+        foreach ($modes as $asset => $mode) {
+            $path = public_path('js/filament/'.$asset);
+            clearstatcache(true, $path);
+            $this->assertSame($mode & 0666, fileperms($path) & 0777);
+        }
+    }
+
     private function assetHashes(): array
     {
         $hashes = [];

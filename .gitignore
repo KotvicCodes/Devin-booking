@@ -25,3 +25,10 @@ Thumbs.db
 
 # Database backups (contain customer PII) must never be committed
 /backups/
+
+# Local agent and verification files
+/AGENTS.md
+/CLAUDE.md
+/.claude/
+/.codex/
+/.verification/

@@ -2,7 +2,7 @@
 
 ## Context
 
-`devin-booking` is a Laravel 12 + FilamentPHP 3 cabin-rental booking system. It exposes a
+`devin-booking` is a Laravel 13 + FilamentPHP 5 cabin-rental booking system. It exposes a
 public booking form (Livewire) with live availability, an admin panel, automatic
 deposit/reminder handling, and Fio Bank payment import. It runs as a Docker Compose stack
 (`app`, `queue`, `scheduler`, `db`, `backup`, `meilisearch`, `caddy`) with Caddy terminating

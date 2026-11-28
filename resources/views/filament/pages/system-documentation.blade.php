@@ -1,7 +1,7 @@
 <x-filament-panels::page>
     <x-filament::card>
 
-        <div class="prose max-w-none dark:prose-invert">
+        <div class="fi-prose max-w-none">
 
             <h2>1. Jak fungují e-maily</h2>
             <p>Systém posílá e-maily automaticky podle toho, jestli má rezervace vyplněný e-mail a jaké přepínače jsou

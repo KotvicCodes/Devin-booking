@@ -4,12 +4,14 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
-use Filament\Forms\Components\Section;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -18,18 +20,18 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-user';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-user';
 
-    protected static ?string $navigationGroup = 'Správa';
+    protected static string|\UnitEnum|null $navigationGroup = 'Správa';
 
     // Sets the plural and singular names for the resource in the navigation menu
     protected static ?string $modelLabel = 'Administrátor';
+
     protected static ?string $pluralModelLabel = 'Administrátoři';
 
     protected static ?string $navigationLabel = 'Správa administrátorů';
 
-
-    public static function form(Form $form): Form
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -44,11 +46,12 @@ class UserResource extends Resource
 
                 TextInput::make('password')
                     ->password()
-                    ->required(fn(string $operation): bool => $operation === 'create')
-                    ->dehydrated(fn($state) => filled($state))
+                    ->required(fn (string $operation): bool => $operation === 'create')
+                    ->dehydrated(fn ($state) => filled($state))
                     ->maxLength(255),
 
                 Section::make('Systémová oprávnění')
+                    ->columnSpanFull()
                     ->description('Toggle the specific actions this staff member is allowed to perform.')
                     ->schema([
                         Toggle::make('is_super_admin')
@@ -103,25 +106,25 @@ class UserResource extends Resource
             ->filters([
                 //
             ])
-            ->actions([
-                Tables\Actions\EditAction::make()
+            ->recordActions([
+                EditAction::make()
                     ->visible(function (User $record): bool {
                         $user = auth()->user();
 
-                        if (!$user) {
+                        if (! $user) {
                             return false;
                         }
 
-                        if ($record->is_super_admin && !$user->is_super_admin) {
+                        if ($record->is_super_admin && ! $user->is_super_admin) {
                             return false;
                         }
 
                         return true;
                     }),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

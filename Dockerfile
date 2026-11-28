@@ -31,7 +31,7 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
-RUN npm install
+RUN npm ci
 RUN npm run build
 
 RUN chown -R www-data:www-data storage bootstrap/cache

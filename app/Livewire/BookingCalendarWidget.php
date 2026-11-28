@@ -2,10 +2,10 @@
 
 namespace App\Livewire;
 
+use App\Filament\Resources\BookingResource;
 use App\Models\Booking;
+use Saade\FilamentFullCalendar\Data\FetchInfo;
 use Saade\FilamentFullCalendar\Widgets\FullCalendarWidget;
-use Saade\FilamentFullCalendar\Data\EventData;
-use Filament\Support\RawJs;
 
 class BookingCalendarWidget extends FullCalendarWidget
 {
@@ -30,7 +30,7 @@ class BookingCalendarWidget extends FullCalendarWidget
         ];
     }
 
-    public function fetchEvents(array $fetchInfo): array
+    public function fetchEvents(FetchInfo $fetchInfo): array
     {
         return Booking::query()
             // Filters the database query to only load bookings visible in the current month view
@@ -50,7 +50,7 @@ class BookingCalendarWidget extends FullCalendarWidget
                     'title' => $booking->customer_name,
                     'start' => $booking->start_date->format('Y-m-d'),
                     'end' => $booking->end_date->format('Y-m-d'),
-                    'url' => \App\Filament\Resources\BookingResource::getUrl('edit', ['record' => $booking->id]),
+                    'url' => BookingResource::getUrl('edit', ['record' => $booking->id]),
                     'description' => $hoverText,
                 ];
             })

@@ -30,7 +30,7 @@ final class FilamentAssetPatches
         }
 
         foreach ($updates as $path => $contents) {
-            $files->replace($path, $contents);
+            $files->replace($path, $contents, 0666 & ~umask());
         }
     }
 

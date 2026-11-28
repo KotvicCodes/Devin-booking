@@ -22,6 +22,12 @@ class FilamentAssetPatchesTest extends TestCase
         $this->assertSame(0, Artisan::call('filament:assets'));
         $first = $this->assetHashes();
 
+        foreach (array_keys($first) as $asset) {
+            $path = public_path('js/filament/'.$asset);
+            clearstatcache(true, $path);
+            $this->assertSame(0, fileperms($path) & 0111);
+        }
+
         FilamentAssetPatches::apply();
         $this->assertSame($first, $this->assetHashes());
 
